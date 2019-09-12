@@ -6,39 +6,52 @@ import { promisify } from 'util';
 export async function activate(context: vscode.ExtensionContext) {
 
 	vscode.window.registerUserDataProvider('Local Store', {
-		async read(key: string): Promise<{ version: number, content: string } | null> {
+		async read(key: string): Promise<{ content: string, ref: string } | null> {
 			const path = await getPath();
 			if (!path) {
 				throw new Error('Location on the disk to store user data is not provided.');
 			}
 			const directory = join(path, key);
 			try {
-				const children = await promisify(fs.readdir)(directory);
-				if (children.length) {
-					children.sort((a, b) => Number(b) - Number(a));
-					const version = Number(children[0]);
-					const content = await promisify(fs.readFile)(join(directory, String(version)));
-					return { version, content: content.toString() };
+				const ref = await getRef(directory);
+				if (ref !== null) {
+					const content = await promisify(fs.readFile)(join(directory, ref));
+					return { ref, content: content.toString() };
 				}
 			} catch (e) {
 			}
 			return null;
 		},
-		async write(key: string, version: number, content: string): Promise<void> {
+		async write(key: string, content: string, ref: string | null): Promise<string> {
 			const path = await getPath();
 			if (!path) {
 				throw new Error('Location on the disk to store user data is not provided.');
 			}
 			const directory = join(path, key);
 			await createDir(directory);
-			const file = join(directory, String(version));
+			const latestRef = await getRef(directory);
+			if (ref !== latestRef) {
+				throw vscode.UserDataError.Rejected();
+			}
+			const newRef = String(latestRef ? Number(latestRef) + 1 : 1);
+			const file = join(directory, newRef);
 			if (await promisify(fs.exists)(file)) {
-				throw vscode.UserDataError.VersionExists();
+				throw vscode.UserDataError.Rejected();
 			}
 			await promisify(fs.writeFile)(file, content);
+			return newRef;
 		}
 	});
 
+}
+
+async function getRef(directory: string): Promise<string | null> {
+	const children = await promisify(fs.readdir)(directory);
+	if (children.length) {
+		children.sort((a, b) => Number(b) - Number(a));
+		return children[0];
+	}
+	return null;
 }
 
 async function getPath(): Promise<string | null | undefined> {

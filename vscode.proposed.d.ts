@@ -26,7 +26,7 @@ declare module 'vscode' {
 
 	export class UserDataError extends Error {
 
-		static VersionExists(): UserDataError;
+		static Rejected(): FileSystemError;
 
 		/**
 		 * Creates a new userData error.
@@ -36,9 +36,9 @@ declare module 'vscode' {
 
 	export interface UserDataProvider {
 
-		read(key: string): Promise<{ version: number, content: string } | null>;
+		read(key: string): Promise<{ content: string, ref: string } | null>;
 
-		write(key: string, version: number, content: string): Promise<void>;
+		write(key: string, content: string, ref: string | null): Promise<string>;
 
 	}
 
