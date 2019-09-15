@@ -5,7 +5,7 @@ import { promisify } from 'util';
 
 export async function activate(context: vscode.ExtensionContext) {
 
-	vscode.window.registerUserDataProvider('Local Store', {
+	vscode.window.registerUserDataSyncProvider('Local Store', {
 		async read(key: string): Promise<{ content: string, ref: string } | null> {
 			const path = await getPath();
 			if (!path) {
