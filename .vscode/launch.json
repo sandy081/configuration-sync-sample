@@ -6,31 +6,14 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Run Extension",
-			"type": "extensionHost",
+			"type": "node",
 			"request": "launch",
-			"runtimeExecutable": "${execPath}",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
-			],
+			"name": "Launch Server",
+			"program": "${workspaceRoot}/src/app.ts",
 			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
+				"${workspaceRoot}/out/**/*.js"
 			],
-			"preLaunchTask": "npm: watch"
-		},
-		{
-			"name": "Extension Tests",
-			"type": "extensionHost",
-			"request": "launch",
-			"runtimeExecutable": "${execPath}",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
-			],
-			"outFiles": [
-				"${workspaceFolder}/out/test/**/*.js"
-			],
-			"preLaunchTask": "npm: watch"
+			"sourceMaps": true
 		}
 	]
 }
