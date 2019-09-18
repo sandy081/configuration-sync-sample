@@ -12,7 +12,7 @@ class HttpStatusError extends Error {
 
 export function createApp(): express.Application {
 	const app = express();
-	app.use(bodyParser.json());
+	app.use(bodyParser.text());
 
 	const router = express.Router();
 	router.get('*', async (req, res) => {
@@ -21,18 +21,29 @@ export function createApp(): express.Application {
 			res.sendStatus(400);
 			return;
 		}
-		const result = await read(key);
-		res.send(new Buffer(JSON.stringify(result)));
+		try {
+			const { content, ref } = await read(key, req);
+			res.setHeader('ETag', ref);
+			res.send(content ? new Buffer(content) : content);
+		} catch (e) {
+			if (e instanceof HttpStatusError) {
+				res.sendStatus(e.status);
+			} else {
+				res.sendStatus(500);
+			}
+		}
+
 	});
 	router.post('*', async (req, res) => {
 		const key = req.path.substring(1);
 		if (!key || !req.body) {
 			res.sendStatus(400);
 		}
-		const { content, ref } = req.body;
+		const content = req.body;
 		try {
-			const result = await write(key, content, ref);
-			res.send(result);
+			const result = await write(key, content, req);
+			res.setHeader('ETag', result);
+			res.sendStatus(200);
 		} catch (e) {
 			if (e instanceof HttpStatusError) {
 				res.sendStatus(e.status);
@@ -48,24 +59,29 @@ export function createApp(): express.Application {
 
 const userDataSyncStorePath = '/Users/sandy081/work/testing/user-data-store';
 
-async function read(key: string): Promise<{ content: string, ref: string } | null> {
+async function read(key: string, req: express.Request): Promise<{ content?: string, ref: string }> {
 	const directory = join(userDataSyncStorePath, key);
+	const ifNoneMatchRef = req.headers['if-none-match'];
 	try {
 		const ref = await getRef(directory);
+		if (ref === ifNoneMatchRef) {
+			throw new HttpStatusError('Not Modified', 304);
+		}
 		if (ref !== null) {
 			const content = await promisify(fs.readFile)(join(directory, ref));
 			return { ref, content: content.toString() };
 		}
 	} catch (e) {
 	}
-	return null;
+	return { ref: '0' };
 }
 
-async function write(key: string, content: string, ref: string): Promise<string> {
+async function write(key: string, content: string, req: express.Request): Promise<string> {
 	const directory = join(userDataSyncStorePath, key);
 	await createDir(directory);
 	const latestRef = await getRef(directory);
-	if (ref !== latestRef) {
+	const ifMatchRef = req.headers['if-match'];
+	if (ifMatchRef && ifMatchRef !== latestRef) {
 		throw new HttpStatusError('Precondition failed', 412);
 	}
 	const newRef = String(latestRef ? Number(latestRef) + 1 : 1);
