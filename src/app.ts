@@ -57,21 +57,18 @@ export function createApp(): express.Application {
 	return app;
 }
 
-const userDataSyncStorePath = '/Users/sandy081/work/testing/user-data-store';
+const userDataSyncStorePath = '/Users/sandy081/work/testing/remote-user-data-store';
 
 async function read(key: string, req: express.Request): Promise<{ content?: string, ref: string }> {
 	const directory = join(userDataSyncStorePath, key);
 	const ifNoneMatchRef = req.headers['if-none-match'];
-	try {
-		const ref = await getRef(directory);
-		if (ref === ifNoneMatchRef) {
-			throw new HttpStatusError('Not Modified', 304);
-		}
-		if (ref !== null) {
-			const content = await promisify(fs.readFile)(join(directory, ref));
-			return { ref, content: content.toString() };
-		}
-	} catch (e) {
+	const ref = await getRef(directory);
+	if (ref === ifNoneMatchRef) {
+		throw new HttpStatusError('Not Modified', 304);
+	}
+	if (ref !== '0') {
+		const content = await promisify(fs.readFile)(join(directory, ref));
+		return { ref, content: content.toString() };
 	}
 	return { ref: '0' };
 }
@@ -93,13 +90,15 @@ async function write(key: string, content: string, req: express.Request): Promis
 	return newRef;
 }
 
-async function getRef(directory: string): Promise<string | null> {
-	const children = await promisify(fs.readdir)(directory);
-	if (children.length) {
-		children.sort((a, b) => Number(b) - Number(a));
-		return children[0];
+async function getRef(directory: string): Promise<string> {
+	if (await promisify(fs.exists)(directory)) {
+		const children = await promisify(fs.readdir)(directory);
+		if (children.length) {
+			children.sort((a, b) => Number(b) - Number(a));
+			return children[0];
+		}
 	}
-	return null;
+	return '0';
 }
 
 async function createDir(path: string): Promise<void> {
