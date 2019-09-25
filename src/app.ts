@@ -15,8 +15,11 @@ export function createApp(): express.Application {
 	app.use(bodyParser.text());
 
 	const router = express.Router();
-	router.get('*', async (req, res) => {
-		const key = req.path.substring(1);
+	router.get('/resource/*/latest', async (req, res) => {
+		let path = req.path.startsWith('/') ? req.path.substring(1) : req.path;
+		path = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+		const keys = path.split('/');
+		const key = keys.length === 3 ? keys[1] : undefined;
 		if (!key) {
 			res.sendStatus(400);
 			return;
@@ -34,10 +37,14 @@ export function createApp(): express.Application {
 		}
 
 	});
-	router.post('*', async (req, res) => {
-		const key = req.path.substring(1);
+	router.post('/resource/*', async (req, res) => {
+		let path = req.path.startsWith('/') ? req.path.substring(1) : req.path;
+		path = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+		const keys = path.split('/');
+		const key = keys.length === 2 ? keys[1] : undefined;
 		if (!key || !req.body) {
 			res.sendStatus(400);
+			return;
 		}
 		const content = req.body;
 		try {
