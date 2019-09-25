@@ -67,32 +67,38 @@ export function createApp(): express.Application {
 const userDataSyncStorePath = '/Users/sandy081/work/testing/remote-user-data-store';
 
 async function read(key: string, req: express.Request): Promise<{ content?: string, ref: string }> {
-	const directory = join(userDataSyncStorePath, key);
 	const ifNoneMatchRef = req.headers['if-none-match'];
+	const directory = join(userDataSyncStorePath, key);
 	const ref = await getRef(directory);
+
 	if (ref === ifNoneMatchRef) {
 		throw new HttpStatusError('Not Modified', 304);
 	}
-	if (ref !== '0') {
-		const content = await promisify(fs.readFile)(join(directory, ref));
-		return { ref, content: content.toString() };
+
+	if (ref === '0') {
+		return { ref: '0' };
 	}
-	return { ref: '0' };
+
+	const content = await promisify(fs.readFile)(join(directory, ref));
+	return { ref, content: content.toString() };
 }
 
 async function write(key: string, content: string, req: express.Request): Promise<string> {
+	const ifMatchRef = req.headers['if-match'];
 	const directory = join(userDataSyncStorePath, key);
 	await createDir(directory);
+
 	const latestRef = await getRef(directory);
-	const ifMatchRef = req.headers['if-match'];
 	if (ifMatchRef && ifMatchRef !== latestRef) {
 		throw new HttpStatusError('Precondition failed', 412);
 	}
+
 	const newRef = String(latestRef ? Number(latestRef) + 1 : 1);
 	const file = join(directory, newRef);
 	if (await promisify(fs.exists)(file)) {
 		throw new HttpStatusError('Precondition failed', 412);
 	}
+	
 	await promisify(fs.writeFile)(file, content);
 	return newRef;
 }
